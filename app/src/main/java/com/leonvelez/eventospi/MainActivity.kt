@@ -39,6 +39,7 @@ import com.leonvelez.eventospi.data.TokenManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.OutlinedTextField
 import com.leonvelez.eventospi.data.model.EventRequest
+import com.leonvelez.eventospi.data.model.RegistrationRequest
 import kotlinx.coroutines.launch
 
 
@@ -67,6 +68,8 @@ fun AppScreen() {
     var showCreateEventScreen by remember { mutableStateOf(false) }
     var showEventsListScreen by remember { mutableStateOf(false) }
     var showUpdateEventScreen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val tokenManager = remember { TokenManager(context) }
 
     if (showRegisterScreen) {
         RegisterScreen(
@@ -96,11 +99,20 @@ fun AppScreen() {
     } else if (showHomeScreen) {
         HomeScreen(
             onGoToCreateEvent = { showCreateEventScreen = true },
-            onGoToChangePassword = { showChangePasswordScreen = true },
             onGoToEventsList = { showEventsListScreen = true },
             onGoToUpdateEvent = { showUpdateEventScreen = true },
+            onGoToChangePassword = { showChangePasswordScreen = true },
             onLogout = {
+                tokenManager.clearToken()
+
                 showHomeScreen = false
+                showRegisterScreen = false
+                showChangePasswordScreen = false
+                showCreateEventScreen = false
+                showEventsListScreen = false
+                showUpdateEventScreen = false
+
+                registeredEmail = ""
                 loginMessage = "Sesión cerrada"
             }
         )
@@ -789,6 +801,11 @@ fun EventsListScreen(
     var deleteId by remember { mutableStateOf("") }
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
+    var registerEventId by remember { mutableStateOf("") }
+    var cancelEventId by remember { mutableStateOf("") }
+    var cancellationReason by remember { mutableStateOf("") }
+    var participantsEventId by remember { mutableStateOf("") }
+    var participantsText by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         scope.launch {
@@ -830,9 +847,207 @@ fun EventsListScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(text = resultText)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = registerEventId,
+            onValueChange = { registerEventId = it },
+            label = { Text("ID del evento para inscribirse") },
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Button(
+            onClick = {
+                if (registerEventId.isBlank()) {
+                    resultText = "Ingresa un ID para inscribirte"
+                    return@Button
+                }
+
+                scope.launch {
+                    try {
+                        val savedToken = tokenManager.getToken()
+
+                        if (savedToken.isNullOrBlank()) {
+                            resultText = "No hay sesión activa"
+                            return@launch
+                        }
+
+                        val response = RetrofitInstance.api.registerToEvent(
+                            token = "Bearer $savedToken",
+                            eventId = registerEventId.toInt(),
+                            cancellationReason = ""
+                        )
+
+                        if (response.isSuccessful) {
+                            onBackToHome()
+                        } else {
+                            val errorText = response.errorBody()?.string().orEmpty()
+
+                            resultText = when {
+                                errorText.contains("Ya estás registrado en este evento", ignoreCase = true) ->
+                                    "Ya estás inscrito en este evento"
+
+                                errorText.contains("No puedes registrarte a tu propio evento", ignoreCase = true) ->
+                                    "No puedes inscribirte a tu propio evento"
+
+                                errorText.contains("El evento ya finalizó", ignoreCase = true) ->
+                                    "El evento ya finalizó"
+
+                                errorText.contains("El evento ya está lleno", ignoreCase = true) ->
+                                    "El evento ya está lleno"
+
+                                errorText.contains("Evento no encontrado", ignoreCase = true) ->
+                                    "Evento no encontrado"
+
+                                else ->
+                                    "Error al inscribirse: ${response.code()}"
+                            }
+                        }
+                    } catch (e: Exception) {
+                        resultText = "Excepción al inscribirse: ${e.message}"
+                    }
+                }
+            }
+        ) {
+            Text("Inscribirse")
+        }
+
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        OutlinedTextField(
+            value = cancelEventId,
+            onValueChange = { cancelEventId = it },
+            label = { Text("ID del evento para cancelar inscripción") },
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = cancellationReason,
+            onValueChange = { cancellationReason = it },
+            label = { Text("Motivo de cancelación") },
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Button(
+            onClick = {
+                if (cancelEventId.isBlank()) {
+                    resultText = "Ingresa un ID para cancelar la inscripción"
+                    return@Button
+                }
+
+                scope.launch {
+                    try {
+                        val savedToken = tokenManager.getToken()
+
+                        if (savedToken.isNullOrBlank()) {
+                            resultText = "No hay sesión activa"
+                            return@launch
+                        }
+
+                        val response = RetrofitInstance.api.cancelRegistration(
+                            token = "Bearer $savedToken",
+                            eventId = cancelEventId.toInt(),
+                            cancellationReason = cancellationReason
+                        )
+
+                        if (response.isSuccessful) {
+                            onBackToHome()
+                        } else {
+                            val errorText = response.errorBody()?.string().orEmpty()
+
+                            resultText = when {
+                                errorText.contains("No estás registrado en este evento", ignoreCase = true) ->
+                                    "No estás inscrito en este evento"
+
+                                errorText.contains("Evento no encontrado", ignoreCase = true) ->
+                                    "Evento no encontrado"
+
+                                else ->
+                                    "Error al cancelar inscripción: ${response.code()}"
+                            }
+                        }
+                    } catch (e: Exception) {
+                        resultText = "Excepción al cancelar inscripción: ${e.message}"
+                    }
+                }
+            }
+        ) {
+            Text("Cancelar inscripción")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+
+        OutlinedTextField(
+            value = participantsEventId,
+            onValueChange = { participantsEventId = it },
+            label = { Text("ID del evento para ver participantes") },
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Button(
+            onClick = {
+                if (participantsEventId.isBlank()) {
+                    participantsText = "Ingresa un ID de evento"
+                    return@Button
+                }
+
+                scope.launch {
+                    try {
+                        val savedToken = tokenManager.getToken()
+
+                        if (savedToken.isNullOrBlank()) {
+                            participantsText = "No hay sesión activa"
+                            return@launch
+                        }
+
+                        val response = RetrofitInstance.api.getParticipantsByEventId(
+                            token = "Bearer $savedToken",
+                            eventId = participantsEventId.toInt()
+                        )
+
+                        if (response.isSuccessful) {
+                            val participants = response.body().orEmpty()
+
+                            participantsText = if (participants.isEmpty()) {
+                                "No hay participantes aprobados para este evento"
+                            } else {
+                                participants.joinToString("\n\n") {
+                                    "Usuario: ${it.userName}\n" +
+                                            "Nombre: ${it.userFirstName} ${it.userLastName}\n" +
+                                            "Estado: ${when (it.status) {
+                                                0 -> "Pendiente"
+                                                1 -> "Aprobado"
+                                                2 -> "Rechazado"
+                                                3 -> "Cancelado"
+                                                4 -> "Asistió"
+                                                else -> "Desconocido"
+                                            }}"
+                                }
+                            }
+                        } else {
+                            participantsText = "Error al obtener participantes: ${response.code()}"
+                        }
+                    } catch (e: Exception) {
+                        participantsText = "Excepción al obtener participantes: ${e.message}"
+                    }
+                }
+            }
+        ) {
+            Text("Ver participantes")
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(text = participantsText)
 
         OutlinedTextField(
             value = deleteId,
