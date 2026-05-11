@@ -11,7 +11,9 @@ data class EventResponse(
     val address: String,
     val maxParticipants: Int,
     val isPublic: Boolean,
-    val category: Int,
+    val imageUrl: String?,
     val price: Double?,
+    val category: Int,
+    val createdByUserId: String?,
     val createdByUserName: String
 )

@@ -5,7 +5,10 @@ import com.leonvelez.eventospi.data.model.EventRequest
 import com.leonvelez.eventospi.data.model.EventResponse
 import com.leonvelez.eventospi.data.model.RegistrationRequest
 import com.leonvelez.eventospi.data.model.EventParticipantResponse
+import com.leonvelez.eventospi.data.model.ManageParticipantRequest
 import okhttp3.ResponseBody
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.POST
@@ -15,6 +18,9 @@ import retrofit2.http.Header
 import retrofit2.http.DELETE
 import retrofit2.http.Path
 import retrofit2.http.PUT
+import retrofit2.http.Multipart
+import retrofit2.http.Part
+
 
 
 
@@ -85,4 +91,35 @@ interface AuthApi {
         @Header("Authorization") token: String,
         @Query("eventId") eventId: Int
     ): Response<List<EventParticipantResponse>>
+
+    @Multipart
+    @POST("api/Event/UploadImageAsync")
+    suspend fun uploadEventImage(
+        @Header("Authorization") token: String,
+        @Part("EventId") eventId: RequestBody,
+        @Part formFile: MultipartBody.Part
+    ): Response<ResponseBody>
+    @GET("api/Event/GetEventsIAmRegistered")
+    suspend fun getEventsIAmRegistered(
+        @Header("Authorization") token: String
+    ): Response<List<EventResponse>>
+
+    @GET("GetPendingRequestsAsync")
+    suspend fun getPendingRequestsAsync(
+        @Header("Authorization") token: String,
+        @Query("eventId") eventId: Int
+    ): Response<List<EventParticipantResponse>>
+
+    @PUT("ApproveOrRejectParticipant")
+    suspend fun approveOrRejectParticipant(
+        @Header("Authorization") token: String,
+        @Body request: ManageParticipantRequest
+    ): Response<EventParticipantResponse>
+
+    @Multipart
+    @POST("UploadImageProfileAsync")
+    suspend fun uploadProfileImage(
+        @Header("Authorization") token: String,
+        @Part file: MultipartBody.Part
+    ): Response<ResponseBody>
 }

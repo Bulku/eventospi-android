@@ -7,7 +7,7 @@ data class EventParticipantResponse(
     val userFirstName: String,
     val userLastName: String,
     val eventId: Int,
-    val event: EventResponse,
+    val event: EventResponse?,
     val registrationDate: String,
     val status: Int,
     val confirmationDate: String?,
